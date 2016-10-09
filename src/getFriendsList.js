@@ -74,11 +74,23 @@ module.exports = function(defaultFuncs, api, ctx) {
                 .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
                 .then(function(resData) {
                   if (resData.payload) {
-                    console.log(resData.payload); // TODO
+                    var mutualFriendsAliases = (function(arr) {
+                      var u = {}, a = [];
+                      for(var i = 0, l = arr.length; i < l; ++i){
+                        if(u.hasOwnProperty(arr[i])) {
+                          continue;
+                        }
+                        a.push(arr[i]);
+                        u[arr[i]] = 1;
+                      }
+                      return a;
+                    })((resData.payload.match(/facebook\.com\/[A-Z,a-z,\.,0-9]+\?fref/g) || []).map(function(alias){ return alias.replace(/facebook\.com\//g, "").replace(/\?fref/g, ""); }));
+
+                    console.log(mutualFriendsAliases);
                   }
-                  else {
-                    throw resData;
-                  }
+                  // else {
+                  //   throw resData;
+                  // }
                   
                   deferred.resolve();
                 })
