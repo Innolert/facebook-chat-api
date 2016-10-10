@@ -84,7 +84,7 @@ module.exports = function(defaultFuncs, api, ctx) {
                         u[arr[i]] = 1;
                       }
                       return a;
-                    })((resData.payload.match(/facebook\.com\/[A-Z,a-z,\.,0-9]+\?fref/g) || []).map(function(alias){ return alias.replace(/facebook\.com\//g, "").replace(/\?fref/g, ""); }));
+                    })((resData.payload.match(/(facebook\.com\/profile.php\?id=[0-9]+&|facebook\.com\/[A-Z,a-z,\.,0-9]+\?fref)/g) || []).map(function(alias){ return alias.replace(/(facebook\.com\/|\?fref|profile\.php\?id=|&)/g, ""); }));
 
                     console.log(mutualFriendsAliases);
                   }
