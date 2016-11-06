@@ -36,6 +36,7 @@ function formatData(obj) {
       profileUrl: user.uri,
       vanity: user.vanity,
       isBirthday: !!user.is_birthday,
+      mutualFriends: user.mutualFriends
     }
   });
 }
@@ -59,22 +60,32 @@ module.exports = function(defaultFuncs, api, ctx) {
 
         if (options && options.getMutualFriends) {
           var promisesArray = [],
-            ids = Object.keys(resData.payload).map(function(key) { return resData.payload[key].id.toString(); }),
-            i = ids.length;
+            keysAndIds = Object.keys(resData.payload).map(function(key) { return { key: key, id: resData.payload[key].id.toString() }; }),
+            i = keysAndIds.length;
 
           while(i--) {
-            var id = ids[i],
+            var keyAndId = keysAndIds[i],
               deferred = q.defer();
 
             promisesArray.push(deferred.promise);
 
-            (function(id, deferred) {
+            var checkerFunc = function(keyAndId, deferred,mutualFriendsAliases, cursor) {
+              mutualFriendsAliases = mutualFriendsAliases || [];
+
+              var id = keyAndId.id,
+                key = keyAndId.key;
+
               defaultFuncs
-                .get("https://www.facebook.com/ajax/pagelet/generic.php/FriendsAppCollectionPagelet", ctx.jar, { "data": { "collection_token": id + ":2356318349:3", "profile_id": parseInt(id) } }, { viewer: ctx.userID })
+                .get("https://www.facebook.com/ajax/pagelet/generic.php/FriendsAppCollectionPagelet", ctx.jar, { "data": { "collection_token": id + ":2356318349:3", "cursor": cursor, "profile_id": parseInt(id) } }, { viewer: ctx.userID })
                 .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
                 .then(function(resData) {
+                  var partialMutualFriendsAliases = [],
+                    id = this.keyAndId.id,
+                    key = this.keyAndId.key,
+                    doneRetrievingMutualFriends = false;
+
                   if (resData.payload) {
-                    var mutualFriendsAliases = (function(arr) {
+                    partialMutualFriendsAliases = (function(arr) {
                       var u = {}, a = [];
                       for(var i = 0, l = arr.length; i < l; ++i){
                         if(u.hasOwnProperty(arr[i])) {
@@ -85,22 +96,47 @@ module.exports = function(defaultFuncs, api, ctx) {
                       }
                       return a;
                     })((resData.payload.match(/(facebook\.com\/profile.php\?id=[0-9]+&|facebook\.com\/[A-Z,a-z,\.,0-9]+\?fref)/g) || []).map(function(alias){ return alias.replace(/(facebook\.com\/|\?fref|profile\.php\?id=|&)/g, ""); }));
-
-                    console.log(mutualFriendsAliases);
                   }
-                  // else {
-                  //   throw resData;
-                  // }
-                  
-                  deferred.resolve();
-                })
+
+                  if (partialMutualFriendsAliases.length > 0 && resData.jsmods && resData.jsmods.require) {
+                    var newCursor,
+                      require = resData.jsmods.require,
+                      i = require.length;
+                    while(i--) {
+                      if (require[i][0] === "TimelineAppCollection") {
+                        newCursor = require[i][3][2];
+                        break;
+                      }
+                    }
+
+                    if (newCursor) {
+                      mutualFriendsAliases = mutualFriendsAliases.concat(partialMutualFriendsAliases);
+                      checkerFunc(this.keyAndId, deferred, mutualFriendsAliases, newCursor);
+                      return;
+                    }
+                  }
+                  deferred.resolve({ key: key, mutualFriends: mutualFriendsAliases });
+                }.bind({ keyAndId: keyAndId }))
                 .catch(function(err) {
-                  log.error("Error in getFriendsList", err);
+                  deferred.resolve({ key: key, mutualFriends: null });
+                  log.error("Error in getMutualFriends for key: " + key, err);
                   return callback(err);
                 });
-              })(id, deferred);
+            }
+            checkerFunc(keyAndId, deferred);
           }
-          q.when.apply(null, promisesArray).then(callback.bind(null, null, formatData(resData.payload)));
+          q.when(q.all(promisesArray), function(mutualFriendsArray) {
+            var i = mutualFriendsArray.length;
+            while(i--) {
+              if (mutualFriendsArray[i].key) {
+                if (!resData.payload[mutualFriendsArray[i].key]) {
+                  resData.payload[mutualFriendsArray[i].key] = {};
+                }
+                resData.payload[mutualFriendsArray[i].key].mutualFriends = mutualFriendsArray[i].mutualFriends;
+              }
+            }
+            callback(null, formatData(resData.payload));
+          });
         }
         else {
           callback(null, formatData(resData.payload));
