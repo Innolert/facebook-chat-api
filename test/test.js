@@ -348,6 +348,20 @@ describe('Login:', function() {
     });
   });
 
+  it('should get the list of friends requests', function (done) {
+    api.getFriendsRequests(function(err, data) {
+      try {
+      checkErr(done)(err);
+      assert(getType(data) === "Array");
+      data.map(v => {
+      })
+      done();
+    } catch(e){
+      done(e);
+    }
+    });
+  });
+
   it('should log out', function (done) {
     api.logout(done);
   });

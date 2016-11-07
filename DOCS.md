@@ -11,6 +11,7 @@
 * [`api.getAppState`](#getAppState)
 * [`api.getCurrentUserID`](#getCurrentUserID)
 * [`api.getFriendsList`](#getFriendsList)
+* [`api.getFriendsRequests`](#getFriendsRequests)
 * [`api.getThreadHistory`](#getThreadHistory)
 * [`api.getThreadInfo`](#getThreadInfo)
 * [`api.getThreadList`](#getThreadList)
@@ -311,6 +312,31 @@ login({email: "FB_EMAIL", password: "FB_PASSWORD"}, function callback (err, api)
   if(err) return console.error(err);
 
   api.getFriendsList(function(err, data) {
+    if(err) return console.error(err);
+
+    console.log(data.length);
+  });
+});
+```
+
+---------------------------------------
+
+<a name="getFriendsRequests" />
+### api.getFriendsRequests(callback)
+
+Returns an array of objects with some information about your friends requests.
+
+__Arguments__
+
+* `callback(err, arr)` - A callback called when the query is done (either with an error or with an confirmation object).
+
+__Example__
+
+```js
+login({email: "FB_EMAIL", password: "FB_PASSWORD"}, function callback (err, api) {
+  if(err) return console.error(err);
+
+  api.getFriendsRequests(function(err, data) {
     if(err) return console.error(err);
 
     console.log(data.length);

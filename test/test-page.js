@@ -130,6 +130,15 @@ describe('Login As Page:', function() {
     });
   });
 
+  it('should get the list of friends requests', function (done) {
+    api.getFriendsRequests(function(err, data) {
+      checkErr(done)(err);
+      assert(getType(data) === "Array");
+      data.map(function(v) {parseInt(v);});
+      done();
+    });
+  });
+
   it('should log out', function (done) {
     api.logout(done);
   });
