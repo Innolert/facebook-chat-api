@@ -68,7 +68,7 @@ module.exports = function(defaultFuncs, api, ctx) {
               u[arr[i]] = 1;
             }
             return a;
-          })((resData.domops[0][3].__html.match(/facebook\.com\/[A-Z,a-z,0-9,\.]+\?fref=jewel/g) || []).map(function(alias){ return alias.replace(/(facebook\.com\/|\?fref=jewel)/g, ""); }));
+          })((resData.domops[0][3].__html.match(/confirm_[0-9]+/g) || []).map(function(alias){ return alias.replace(/confirm_/g, ""); }));
         }
         callback(null, formatData(requestingUsers));
       })
