@@ -50,31 +50,48 @@ function loadMutualFriendsData(defaultFuncs, ctx, obj, callback) {
     var id = ids[i],
       deferred = q.defer();
 
-    defaultFuncs
-      .get("https://www.facebook.com/ajax/pagelet/generic.php/FriendsAppCollectionPagelet", ctx.jar, { "data": { "collection_token": id + ":2356318349:3", /*"cursor": cursor,*/ "profile_id": parseInt(id) } }, { viewer: ctx.userID })
-      .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
-      .then(function(resData) {
-        var payload = resData.payload,
-          partialMutualFriendsAliases = [];
-
-        if (payload) {
-          partialMutualFriendsAliases = (function(arr) {
-            var u = {}, a = [];
-            for(var i = 0, l = arr.length; i < l; ++i){
-              if(u.hasOwnProperty(arr[i])) {
-                continue;
-              }
-              a.push(arr[i]);
-              u[arr[i]] = 1;
+    function requestInfo(deferred, obj, id, cursor) {
+      defaultFuncs
+        .get("https://www.facebook.com/ajax/pagelet/generic.php/FriendsAppCollectionPagelet", ctx.jar, { "data": { "collection_token": id + ":2356318349:3", "cursor": cursor, "profile_id": parseInt(id) } }, { viewer: ctx.userID })
+        .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
+        .then(function(resData) {
+          var payload = resData.payload,
+            partialMutualFriendsAliases = [],
+            newCursor,
+            require = resData.jsmods.require,
+            i = require.length;
+          while(i--) {
+            if (require[i][0] === "TimelineAppCollection") {
+              newCursor = require[i][3][2];
+              break;
             }
-            return a;
-          })((payload.match(/(facebook\.com\/profile.php\?id=[0-9]+&|facebook\.com\/[A-Z,a-z,\.,0-9]+\?fref)/g) || []).map(function(alias){ return alias.replace(/(facebook\.com\/|\?fref|profile\.php\?id=|&)/g, ""); }));
-        }
+          }
 
-        this.obj[this.id].mutualFriends = partialMutualFriendsAliases;
+          if (payload) {
+            partialMutualFriendsAliases = (function(arr) {
+              var u = {}, a = [];
+              for(var i = 0, l = arr.length; i < l; ++i){
+                if(u.hasOwnProperty(arr[i])) {
+                  continue;
+                }
+                a.push(arr[i]);
+                u[arr[i]] = 1;
+              }
+              return a;
+            })((payload.match(/(facebook\.com\/profile.php\?id=[0-9]+&|facebook\.com\/[A-Z,a-z,\.,0-9]+\?fref)/g) || []).map(function(alias){ return alias.replace(/(facebook\.com\/|\?fref|profile\.php\?id=|&)/g, ""); }));
+          }
 
-        this.deferred.resolve();
-      }.bind({ deferred: deferred, obj: obj, id: id }));
+          this.obj[this.id].mutualFriends = (this.obj[this.id].mutualFriends || []).concat(partialMutualFriendsAliases);
+
+          if (newCursor) {
+            requestInfo(deferred, obj, id, newCursor);
+          }
+          else {
+            this.deferred.resolve();
+          }
+        }.bind({ deferred: deferred, obj: obj, id: id }));
+    }
+    requestInfo(deferred, obj, id);
 
     promisesArray.push(deferred.promise);
   }
@@ -83,7 +100,7 @@ function loadMutualFriendsData(defaultFuncs, ctx, obj, callback) {
 }
 
 module.exports = function(defaultFuncs, api, ctx) {
-  return function getFriendsRequests(callback) {
+  return function getFriendsRequests(callback, options) {
     if(!callback) {
       throw {error: "getFriendsRequests: need callback"};
     }
@@ -106,9 +123,14 @@ module.exports = function(defaultFuncs, api, ctx) {
               requestingUsers[id] = { id: id };
             })
         }
-        loadMutualFriendsData(defaultFuncs, ctx, requestingUsers, function() {
+        if (options && options.getMutualFriends) {
+          loadMutualFriendsData(defaultFuncs, ctx, requestingUsers, function() {
+            callback(null, formatData(requestingUsers));
+          });
+        }
+        else {
           callback(null, formatData(requestingUsers));
-        });
+        }
       })
       .catch(function(err) {
         log.error("Error in getFriendsRequests", err);
