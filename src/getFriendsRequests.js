@@ -89,7 +89,11 @@ function loadMutualFriendsData(defaultFuncs, ctx, obj, callback) {
           else {
             this.deferred.resolve();
           }
-        }.bind({ deferred: deferred, obj: obj, id: id }));
+        }.bind({ deferred: deferred, obj: obj, id: id }))
+        .catch(function(err) {
+          log.error("Error in getFriendsRequests > loadMutualFriendsData", err);
+          this.deferred.resolve();
+        }.bind({ deferred: deferred }));
     }
     requestInfo(deferred, obj, id);
 
